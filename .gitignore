@@ -1,0 +1,33 @@
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+
+# Original PDF books
+/data/raw/
+
+# Generated OCR and processed data
+/data/processed/
+
+# Structured data (legacy)
+/data/structured/
+
+# Rule-based structured data
+/data/structured_v2/
+
+# LLM-generated structured data
+/data/structured_llm/
+
+# Local environment variables
+.env
+.env.*
+!.env.example
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
