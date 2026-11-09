@@ -36,6 +36,7 @@ This directory contains Python scripts for processing historical homeopathic ref
 - OCRmyPDF
 - Tesseract OCR
 - English and/or German Tesseract language data
+- Ghostscript (installed automatically with Homebrew `ocrmypdf` on macOS; install separately on Windows)
 - Optional for LLM mode: Ollama and a locally installed model (example: `qwen2.5:7b`)
 
 The LLM extension uses Python standard-library HTTP requests; no additional Ollama Python SDK is required.
@@ -56,6 +57,9 @@ scripts/ingestion/
 ├── reading_order.py
 ├── requirements.txt
 └── README.md
+
+.claude/skills/ingest-books/
+└── SKILL.md          # Claude Code skill for running this pipeline
 
 data/
 ├── raw/
@@ -86,12 +90,60 @@ brew install ocrmypdf
 brew install tesseract-lang
 ```
 
+### 1b. Install OCR Tools (Windows)
+
+OCRmyPDF on Windows needs Tesseract and Ghostscript installed separately; OCRmyPDF itself is installed with pip into the virtual environment (Step 2–3). Run the following in PowerShell:
+
+```powershell
+winget install --id UB-Mannheim.TesseractOCR
+winget install --id ArtifexSoftware.GhostScript
+```
+
+Without `winget`, download the installers manually:
+
+- Tesseract: <https://github.com/UB-Mannheim/tesseract/wiki>
+- Ghostscript: <https://ghostscript.com/releases/gsdnld.html>
+
+**German language data:** The Tesseract installer includes English by default. Select German under *Additional language data* during installation, or download `deu.traineddata` from <https://github.com/tesseract-ocr/tessdata> and copy it into `C:\Program Files\Tesseract-OCR\tessdata\`.
+
+**PATH:** Make sure both tools are on `PATH` (adjust the Ghostscript version to the installed one), then open a new terminal:
+
+```powershell
+$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+[Environment]::SetEnvironmentVariable("Path", "$userPath;C:\Program Files\Tesseract-OCR;C:\Program Files\gs\gs10.05.1\bin", "User")
+```
+
+(You can also add these folders via *System Properties → Environment Variables*.)
+
+After creating and activating the virtual environment (Step 2), install OCRmyPDF and verify the setup:
+
+```powershell
+python -m pip install ocrmypdf
+tesseract --version
+tesseract --list-langs   # should include eng and deu
+gswin64c --version
+ocrmypdf --version
+```
+
+Alternatively, run the whole pipeline inside WSL (Ubuntu) and follow the Linux packages: `sudo apt install ocrmypdf tesseract-ocr-eng tesseract-ocr-deu`.
+
 ### 2. Create a Python Virtual Environment
+
+macOS / Linux:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 ```
+
+Windows (PowerShell):
+
+```powershell
+py -m venv .venv
+.venv\Scripts\Activate.ps1
+```
+
+If PowerShell blocks the activation script, run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once.
 
 ### 3. Install Python Dependencies
 
@@ -127,6 +179,19 @@ ollama list
 ```
 
 The default local endpoint is `http://localhost:11434`. If Ollama is already running as a Homebrew background service (`brew services start ollama`), do not also run `ollama serve`. The rule-based pipeline does not require Ollama or any LLM.
+
+## Claude Code Skill
+
+The pipeline has a project skill for [Claude Code](https://claude.com/claude-code) at `.claude/skills/ingest-books/SKILL.md`. It checks the OCR tools and Ollama, runs the steps below in order with the correct `--input` paths for each branch, and summarizes the JSON reports. It does not overwrite existing outputs without asking.
+
+Invoke it from the repository root in Claude Code:
+
+```text
+/ingest-books data/raw --lang deu --mode rule
+/ingest-books data/raw/<book>.pdf --lang eng --mode both
+```
+
+Or describe the task in plain language (e.g. "OCR the new German PDFs in data/raw and run the rule-based pipeline"); Claude loads the skill automatically. Update the skill when script arguments or default paths change.
 
 ## Usage
 
@@ -274,7 +339,6 @@ The LLM proposes headings and classifies candidate entities. Proposed headings a
 - The updated `chunk_books.py` can process LLM passages when pointed to `data/structured_llm/`, and the updated `validate_data.py` checks page-slice offsets and coverage. Validation does not prove that inferred headings or relationships are semantically correct.
 
 ### Step 4: Text Chunking (Either Mode)
-
 
 Rule-based output:
 
